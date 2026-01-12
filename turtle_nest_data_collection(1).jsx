@@ -132,3 +132,4 @@ export default function Page() {
 // /public/icon-192.png
 // /public/icon-512.png
 // /public/service-worker.js
+Remove app router
