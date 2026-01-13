@@ -2,6 +2,7 @@
 // SAYULITA TURTLE RELEASE – WORKING PWA
 // VERCEL-SAFE, NO EXTERNAL UI LIBRARIES
 // ================================
+"use client";
 
 import { useState, useEffect } from "react";
 
@@ -22,32 +23,56 @@ export default function Page() {
     notes: ""
   });
 
-  // Load saved data
+  /* -------------------- LOAD SAVED DATA -------------------- */
   useEffect(() => {
-    const saved = localStorage.getItem("sayulita-turtle-nests");
-    if (saved) setRecords(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem("sayulita-turtle-nests");
+      if (saved) setRecords(JSON.parse(saved));
+    } catch (err) {
+      console.error("Failed to load saved records", err);
+    }
   }, []);
 
-  // Save data offline
+  /* -------------------- SAVE OFFLINE -------------------- */
   useEffect(() => {
-    localStorage.setItem("sayulita-turtle-nests", JSON.stringify(records));
+    localStorage.setItem(
+      "sayulita-turtle-nests",
+      JSON.stringify(records)
+    );
   }, [records]);
 
-  // GPS capture
+  /* -------------------- GPS -------------------- */
   const captureGPS = () => {
-    if (!navigator.geolocation) return alert("GPS not supported");
-    navigator.geolocation.getCurrentPosition(pos => {
-      setGps(`${pos.coords.latitude}, ${pos.coords.longitude}`);
-    });
+    if (!navigator.geolocation) {
+      alert("GPS not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setGps(`${pos.coords.latitude}, ${pos.coords.longitude}`);
+      },
+      () => alert("Unable to retrieve GPS location")
+    );
   };
 
-  // Photo capture
+  /* -------------------- PHOTO -------------------- */
   const handlePhoto = e => {
-    const file = e.target.files[0];
-    if (file) setPhoto(URL.createObjectURL(file));
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setPhoto(url);
   };
 
-  // Save record
+  /* Clean up photo URL */
+  useEffect(() => {
+    return () => {
+      if (photo) URL.revokeObjectURL(photo);
+    };
+  }, [photo]);
+
+  /* -------------------- SUBMIT -------------------- */
   const handleSubmit = () => {
     if (!form.volunteer || !form.location) {
       alert("Volunteer name and location are required");
@@ -62,51 +87,104 @@ export default function Page() {
       timestamp: new Date().toISOString()
     };
 
-    setRecords([...records, record]);
-    setForm({ volunteer: "", patrolId: "", date: "", time: "", location: "", species: "Olive Ridley", eggs: "", notes: "" });
+    setRecords(prev => [...prev, record]);
+
+    setForm({
+      volunteer: "",
+      patrolId: "",
+      date: "",
+      time: "",
+      location: "",
+      species: "Olive Ridley",
+      eggs: "",
+      notes: ""
+    });
+
     setGps("");
     setPhoto(null);
-
-    // OPTIONAL CLOUD SYNC
-    // fetch("PASTE_WEBHOOK_URL_HERE", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(record)
-    // });
   };
 
   const t = {
-    en: { title: "Sayulita Turtle Nest Patrol", save: "Save Nest", gps: "Capture GPS" },
-    es: { title: "Patrulla de Nidos – Sayulita", save: "Guardar Nido", gps: "Capturar GPS" }
+    en: {
+      title: "Sayulita Turtle Nest Patrol",
+      save: "Save Nest",
+      gps: "Capture GPS"
+    },
+    es: {
+      title: "Patrulla de Nidos – Sayulita",
+      save: "Guardar Nido",
+      gps: "Capturar GPS"
+    }
   };
 
   return (
     <main style={{ maxWidth: 500, margin: "0 auto", padding: 16, fontFamily: "Arial, sans-serif" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>🐢 {t[lang].title}</h1>
-        <button onClick={() => setLang(lang === "en" ? "es" : "en")}>{lang === "en" ? "ES" : "EN"}</button>
+        <button type="button" onClick={() => setLang(lang === "en" ? "es" : "en")}>
+          {lang === "en" ? "ES" : "EN"}
+        </button>
       </header>
 
-      <input placeholder="Volunteer / Voluntario" value={form.volunteer} onChange={e => setForm({ ...form, volunteer: e.target.value })} />
-      <input placeholder="Patrol ID / Patrulla" value={form.patrolId} onChange={e => setForm({ ...form, patrolId: e.target.value })} />
+      <input
+        placeholder="Volunteer / Voluntario"
+        value={form.volunteer}
+        onChange={e => setForm({ ...form, volunteer: e.target.value })}
+      />
+
+      <input
+        placeholder="Patrol ID / Patrulla"
+        value={form.patrolId}
+        onChange={e => setForm({ ...form, patrolId: e.target.value })}
+      />
+
       <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
       <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
-      <input placeholder="Beach / Playa" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
 
-      <button onClick={captureGPS}>📍 {t[lang].gps}</button>
+      <input
+        placeholder="Beach / Playa"
+        value={form.location}
+        onChange={e => setForm({ ...form, location: e.target.value })}
+      />
+
+      <button type="button" onClick={captureGPS}>
+        📍 {t[lang].gps}
+      </button>
+
       {gps && <p>{gps}</p>}
 
       <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} />
-      {photo && <img src={photo} style={{ width: "100%", marginTop: 8 }} />}
+
+      {photo && (
+        <img
+          src={photo}
+          alt="Nest photo"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+      )}
 
       <input value={form.species} readOnly />
-      <input type="number" placeholder="# Eggs" value={form.eggs} onChange={e => setForm({ ...form, eggs: e.target.value })} />
-      <textarea placeholder="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
 
-      <button onClick={handleSubmit}>{t[lang].save}</button>
+      <input
+        type="number"
+        placeholder="# Eggs"
+        value={form.eggs}
+        onChange={e => setForm({ ...form, eggs: e.target.value })}
+      />
+
+      <textarea
+        placeholder="Notes"
+        value={form.notes}
+        onChange={e => setForm({ ...form, notes: e.target.value })}
+      />
+
+      <button type="button" onClick={handleSubmit}>
+        {t[lang].save}
+      </button>
 
       <hr />
       <h3>Saved Records</h3>
+
       {records.map(r => (
         <div key={r.id} style={{ fontSize: 12, borderBottom: "1px solid #ccc" }}>
           {r.id} – {r.location}
@@ -115,21 +193,3 @@ export default function Page() {
     </main>
   );
 }
-
-// ================================
-// WHY THIS WORKS ON VERCEL
-// ================================
-// • No shadcn/ui imports
-// • No alias paths (@/components)
-// • No server-side APIs required
-// • Runs as a single client component
-// • Fully compatible with Next.js + Vercel
-
-// ================================
-// NEXT FILES TO ADD (REQUIRED)
-// ================================
-// /public/manifest.json
-// /public/icon-192.png
-// /public/icon-512.png
-// /public/service-worker.js
-Remove app router
